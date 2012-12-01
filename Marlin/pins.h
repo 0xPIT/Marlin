@@ -658,19 +658,23 @@
 *
 ****************************************************************************************/
 #if MOTHERBOARD == 63
-#define MELZI
+# define MELZI
 #endif
+
 #if MOTHERBOARD == 62 || MOTHERBOARD == 63
-#undef MOTHERBOARD
-#define MOTHERBOARD 6
-#define SANGUINOLOLU_V_1_2 
+# undef MOTHERBOARD
+# define MOTHERBOARD 6
+# define SANGUINOLOLU_V_1_2 
 #endif
+
 #if MOTHERBOARD == 6
-#define KNOWN_BOARD 1
-#ifndef __AVR_ATmega644P__
-#ifndef __AVR_ATmega1284P__
-#error Oops!  Make sure you have 'Sanguino' selected from the 'Tools -> Boards' menu.
-#endif
+# define KNOWN_BOARD 1
+# ifndef __AVR_ATmega644P__
+#  ifndef __AVR_ATmega1284P__
+#    ifndef __AVR_ATmega2560__
+#      error Oops!  Make sure you have 'Sanguino' selected from the 'Tools -> Boards' menu.
+#    endif
+#  endif
 #endif
 
 #define X_STEP_PIN         15
@@ -750,6 +754,34 @@
 #ifdef MELZI
 #define SDSS               24
 #endif
+
+#ifdef ULTRA_LCD
+    #ifdef NEWPANEL
+      //we have no buzzer installed
+      #define BEEPER -1
+      //LCD Pins
+/*
+      #define LCD_PINS_RS        4
+      #define LCD_PINS_ENABLE    17
+      #define LCD_PINS_D4        30
+      #define LCD_PINS_D5        29
+      #define LCD_PINS_D6        28
+      #define LCD_PINS_D7        27
+*/
+      //The encoder and click button
+      #define BTN_EN1 2 //10  //must be a hardware interrupt pin
+      #define BTN_EN2 3 //11  //must be hardware interrupt pin
+      #define BTN_ENC 4 //16  //the switch
+
+      //not connected to a pin 
+      #define SDCARDDETECT -1
+      
+      #define BLEN_C 2
+//      #define BLEN_B 1
+//      #define BLEN_A 0
+      
+    #endif //Newpanel
+  #endif //Ultipanel
 
 #endif
 
@@ -1381,8 +1413,8 @@
     #define LCD_PINS_D7 29
     
     //buttons are directly attached using AUX-2
-    #define BTN_EN1 59
-    #define BTN_EN2 64
+    #define BTN_EN1 37
+    #define BTN_EN2 35
     #define BTN_ENC 43  //the click
     
     #define BLEN_C 2

@@ -432,7 +432,7 @@ void CardReader::checkautostart(bool force)
   }
   
   char autoname[30];
-  sprintf_P(autoname, PSTR("auto%i.g"), lastnr);
+  sprintf(autoname,"auto%i.g",lastnr);
   for(int8_t i=0;i<(int8_t)strlen(autoname);i++)
     autoname[i]=tolower(autoname[i]);
   dir_t p;
@@ -452,9 +452,9 @@ void CardReader::checkautostart(bool force)
     {
       char cmd[30];
 
-      sprintf_P(cmd, PSTR("M23 %s"), autoname);
+      sprintf(cmd,"M23 %s",autoname);
       enquecommand(cmd);
-      enquecommand_P(PSTR("M24"));
+      enquecommand("M24");
       found=true;
     }
   }
@@ -533,7 +533,7 @@ void CardReader::printingHasFinished()
  if(SD_FINISHED_STEPPERRELEASE)
  {
    //finishAndDisableSteppers();
-   enquecommand_P(PSTR(SD_FINISHED_RELEASECOMMAND));
+   enquecommand(SD_FINISHED_RELEASECOMMAND);
  }
  autotempShutdown();
 }

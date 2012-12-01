@@ -1,0 +1,9 @@
+[submodule "encoder"]
+	path = encoder
+	url = git@github.com:0xPIT/encoder.git
+[submodule "Marlin/encoder"]
+	path = Marlin/encoder
+	url = git@github.com:0xPIT/encoder.git
+[submodule "Marlin/menu"]
+	path = Marlin/menu
+	url = git@github.com:0xPIT/menu.git

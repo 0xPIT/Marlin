@@ -40,10 +40,6 @@
 #include "language.h"
 #include "pins_arduino.h"
 
-#if DIGIPOTSS_PIN > -1
-#include <SPI.h>
-#endif
-
 #define VERSION_STRING  "1.0.0"
 
 // look here for descriptions of gcodes: http://linuxcnc.org/handbook/gcode/g-code.html
@@ -125,10 +121,6 @@
 // M501 - reads parameters from EEPROM (if you need reset them after you changed them temporarily).  
 // M502 - reverts to the default "factory settings".  You still need to store them in EEPROM afterwards if you want to.
 // M503 - print the current settings (from memory not from eeprom)
-// M907 - Set digital trimpot motor current using axis codes.
-// M908 - Control digital trimpot directly.
-// M350 - Set microstepping mode.
-// M351 - Toggle MS1 MS2 pins directly.
 // M999 - Restart after being stopped by error
 
 //Stepper Movement Variables
@@ -254,21 +246,6 @@ void enquecommand(const char *cmd)
   }
 }
 
-void enquecommand_P(const char *cmd)
-{
-  if(buflen < BUFSIZE)
-  {
-    //this is dangerous if a mixing of serial and this happsens
-    strcpy_P(&(cmdbuffer[bufindw][0]),cmd);
-    SERIAL_ECHO_START;
-    SERIAL_ECHOPGM("enqueing \"");
-    SERIAL_ECHO(cmdbuffer[bufindw]);
-    SERIAL_ECHOLNPGM("\"");
-    bufindw= (bufindw + 1)%BUFSIZE;
-    buflen += 1;
-  }
-}
-
 void setup_killpin()
 {
   #if( KILL_PIN>-1 )
@@ -333,8 +310,6 @@ void setup()
       SERIAL_ECHOPGM(STRING_VERSION_CONFIG_H);
       SERIAL_ECHOPGM(MSG_AUTHOR);
       SERIAL_ECHOLNPGM(STRING_CONFIG_H_AUTHOR);
-      SERIAL_ECHOPGM("Compiled: ");
-      SERIAL_ECHOLNPGM(__DATE__);
     #endif
   #endif
   SERIAL_ECHO_START;
@@ -377,7 +352,7 @@ void loop()
     #ifdef SDSUPPORT
       if(card.saving)
       {
-	if(strstr_P(cmdbuffer[bufindr], PSTR("M29")) == NULL)
+	if(strstr(cmdbuffer[bufindr],"M29") == NULL)
 	{
 	  card.write_command(cmdbuffer[bufindr]);
 	  SERIAL_PROTOCOLLNPGM(MSG_OK);
@@ -422,11 +397,11 @@ void get_command()
       if(!comment_mode){
         comment_mode = false; //for new command
         fromsd[bufindw] = false;
-        if(strchr(cmdbuffer[bufindw], 'N') != NULL)
+        if(strstr(cmdbuffer[bufindw], "N") != NULL)
         {
           strchr_pointer = strchr(cmdbuffer[bufindw], 'N');
           gcode_N = (strtol(&cmdbuffer[bufindw][strchr_pointer - cmdbuffer[bufindw] + 1], NULL, 10));
-          if(gcode_N != gcode_LastN+1 && (strstr_P(cmdbuffer[bufindw], PSTR("M110")) == NULL) ) {
+          if(gcode_N != gcode_LastN+1 && (strstr(cmdbuffer[bufindw], "M110") == NULL) ) {
             SERIAL_ERROR_START;
             SERIAL_ERRORPGM(MSG_ERR_LINE_NO);
             SERIAL_ERRORLN(gcode_LastN);
@@ -436,7 +411,7 @@ void get_command()
             return;
           }
 
-          if(strchr(cmdbuffer[bufindw], '*') != NULL)
+          if(strstr(cmdbuffer[bufindw], "*") != NULL)
           {
             byte checksum = 0;
             byte count = 0;
@@ -468,7 +443,7 @@ void get_command()
         }
         else  // if we don't receive 'N' but still see '*'
         {
-          if((strchr(cmdbuffer[bufindw], '*') != NULL))
+          if((strstr(cmdbuffer[bufindw], "*") != NULL))
           {
             SERIAL_ERROR_START;
             SERIAL_ERRORPGM(MSG_ERR_NO_LINENUMBER_WITH_CHECKSUM);
@@ -477,7 +452,7 @@ void get_command()
             return;
           }
         }
-        if((strchr(cmdbuffer[bufindw], 'G') != NULL)){
+        if((strstr(cmdbuffer[bufindw], "G") != NULL)){
           strchr_pointer = strchr(cmdbuffer[bufindw], 'G');
           switch((int)((strtod(&cmdbuffer[bufindw][strchr_pointer - cmdbuffer[bufindw] + 1], NULL)))){
           case 0:
@@ -532,7 +507,7 @@ void get_command()
         int sec,min;
         min=t/60;
         sec=t%60;
-        sprintf_P(time, PSTR("%i min, %i sec"),min,sec);
+        sprintf(time,"%i min, %i sec",min,sec);
         SERIAL_ECHO_START;
         SERIAL_ECHOLN(time);
         LCD_MESSAGE(time);
@@ -575,6 +550,11 @@ long code_value_long()
 { 
   return (strtol(&cmdbuffer[bufindr][strchr_pointer - cmdbuffer[bufindr] + 1], NULL, 10)); 
 }
+
+bool code_seen(char code_string[]) //Return True if the string was found
+{ 
+  return (strstr(cmdbuffer[bufindr], code_string) != NULL); 
+}  
 
 bool code_seen(char code)
 {
@@ -945,7 +925,7 @@ void process_commands()
       int sec,min;
       min=t/60;
       sec=t%60;
-      sprintf_P(time, PSTR("%i min, %i sec"), min, sec);
+      sprintf(time,"%i min, %i sec",min,sec);
       SERIAL_ECHO_START;
       SERIAL_ECHOLN(time);
       LCD_MESSAGE(time);
@@ -1493,52 +1473,6 @@ void process_commands()
     case 503: // print settings currently in memory
     {
         Config_PrintSettings();
-    }
-    break;
-    case 907: // Set digital trimpot motor current using axis codes.
-    {
-      #if DIGIPOTSS_PIN > -1
-        for(int i=0;i<=NUM_AXIS;i++) if(code_seen(axis_codes[i])) digipot_current(i,code_value());
-        if(code_seen('B')) digipot_current(4,code_value());
-        if(code_seen('S')) for(int i=0;i<=4;i++) digipot_current(i,code_value());
-      #endif
-    }
-    case 908: // Control digital trimpot directly.
-    {
-      #if DIGIPOTSS_PIN > -1
-        uint8_t channel,current;
-        if(code_seen('P')) channel=code_value();
-        if(code_seen('S')) current=code_value();
-        digitalPotWrite(channel, current);
-      #endif
-    }
-    break;
-    case 350: // Set microstepping mode. Warning: Steps per unit remains unchanged. S code sets stepping mode for all drivers.
-    {
-      #if X_MS1_PIN > -1
-        if(code_seen('S')) for(int i=0;i<=4;i++) microstep_mode(i,code_value()); 
-        for(int i=0;i<=NUM_AXIS;i++) if(code_seen(axis_codes[i])) microstep_mode(i,(uint8_t)code_value());
-        if(code_seen('B')) microstep_mode(4,code_value());
-        microstep_readings();
-      #endif
-    }
-    break;
-    case 351: // Toggle MS1 MS2 pins directly, S# determines MS1 or MS2, X# sets the pin high/low.
-    {
-      #if X_MS1_PIN > -1
-      if(code_seen('S')) switch((int)code_value())
-      {
-        case 1:
-          for(int i=0;i<=NUM_AXIS;i++) if(code_seen(axis_codes[i])) microstep_ms(i,code_value(),-1);
-          if(code_seen('B')) microstep_ms(4,code_value(),-1);
-          break;
-        case 2:
-          for(int i=0;i<=NUM_AXIS;i++) if(code_seen(axis_codes[i])) microstep_ms(i,-1,code_value());
-          if(code_seen('B')) microstep_ms(4,-1,code_value());
-          break;
-      }
-      microstep_readings();
-      #endif
     }
     break;
     case 999: // Restart after being stopped

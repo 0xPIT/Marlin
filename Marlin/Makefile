@@ -37,19 +37,26 @@
 # from the commandline with "make HARDWARE_MOTHERBOARD=71" for example
 
 # This defined the board you are compiling for (see Configuration.h for the options)
-HARDWARE_MOTHERBOARD ?= 11
+HARDWARE_MOTHERBOARD ?= 62
 
 # Arduino source install directory, and version number
-ARDUINO_INSTALL_DIR  ?= ../../arduino-0022
+ARDUINO_INSTALL_DIR  ?= /Applications/Arduino022.app/Contents/Resources/Java/
 ARDUINO_VERSION      ?= 22
 
 # You can optionally set a path to the avr-gcc tools. Requires a trailing slash. (ex: /usr/local/avr-gcc/bin)
-AVR_TOOLS_PATH ?= 
+AVR_TOOLS_PATH ?= $(ARDUINO_INSTALL_DIR)/hardware/tools/avr/bin/
 
 #Programmer configuration
-UPLOAD_RATE        ?= 115200
+UPLOAD_RATE        ?= -b 115200
 AVRDUDE_PROGRAMMER ?= arduino
-UPLOAD_PORT        ?= /dev/arduino
+#stk500v2
+#arduino
+UPLOAD_PORT        ?= /dev/tty.usbserial-AE01DRVQ
+#/dev/tty.usbserial-A7005tw9
+AVRDUDE_CONFIG ?= /usr/local/etc/avrdude.conf
+#$(ARDUINO_INSTALL_DIR)/hardware/tools/avrdude.conf
+
+#avrdude  -c stk500v2  -p atmega1284p -P /dev/tty.usbserial-A7005tw9  -V -U flash:w:Marlin.cpp.hex:i
 
 #Directory used to build files in, contains all the build files, from object files to the final hex file.
 BUILD_DIR          ?= applet
@@ -109,7 +116,8 @@ HARDWARE_VARIANT ?= Sanguino
 MCU              ?= atmega1284p
 else ifeq  ($(HARDWARE_MOTHERBOARD),62)
 HARDWARE_VARIANT ?= Sanguino
-MCU              ?= atmega1284p
+#MCU              ?= atmega1284p
+MCU              ?= atmega2560
 else ifeq  ($(HARDWARE_MOTHERBOARD),63)
 HARDWARE_VARIANT ?= Sanguino
 MCU              ?= atmega1284p
@@ -147,11 +155,6 @@ else ifeq  ($(HARDWARE_MOTHERBOARD),91)
 HARDWARE_VARIANT ?= Sanguino
 MCU              ?= atmega644p
 
-#Rambo
-else ifeq  ($(HARDWARE_MOTHERBOARD),301)
-HARDWARE_VARIANT ?= arduino
-MCU              ?= atmega2560
-
 endif
 
 # Be sure to regenerate speed_lookuptable.h with create_speed_lookuptable.py
@@ -163,10 +166,12 @@ F_CPU ?= 16000000
 # Libraries, the "hardware variant" are for boards
 # that derives from that, and their source are present in
 # the main Marlin source directory
-ifeq ($(HARDWARE_VARIANT), arduino)
-HARDWARE_SRC = $(ARDUINO_INSTALL_DIR)/hardware/arduino/cores/arduino
+ARDUINO = $(ARDUINO_INSTALL_DIR)/hardware/arduino/cores/arduino
+
+ifeq (${HARDWARE_VARIANT}, arduino)
+HARDWARE_SRC = $(ARDUINO)
 else
-HARDWARE_SRC = $(HARDWARE_VARIANT)/cores/arduino
+HARDWARE_SRC = /Users/pit/Documents/Arduino/hardware/$(HARDWARE_VARIANT)/cores/arduino
 endif
 
 TARGET = $(notdir $(CURDIR))
@@ -175,30 +180,55 @@ TARGET = $(notdir $(CURDIR))
 # there is no need to specify explicit pathnames as long as the
 # directory is added here
 
+ARDUINO_LIB_DIR = /Users/pit/Documents/Arduino/libraries
+
 VPATH = .
 VPATH += $(BUILD_DIR)
 VPATH += $(HARDWARE_SRC)
-VPATH += $(ARDUINO_INSTALL_DIR)/libraries/LiquidCrystal
+#VPATH += $(ARDUINO)
+#VPATH += $(ARDUINO_INSTALL_DIR)/libraries/LiquidCrystal
 VPATH += $(ARDUINO_INSTALL_DIR)/libraries/SPI
-ifeq ($(HARDWARE_VARIANT), arduino)
-VPATH += $(ARDUINO_INSTALL_DIR)/hardware/arduino/variants/mega
-endif
-SRC = wiring.c \
-	wiring_analog.c wiring_digital.c \
-	wiring_pulse.c \
-	wiring_shift.c WInterrupts.c
-CXXSRC = WMath.cpp WString.cpp Print.cpp Marlin_main.cpp	\
-	MarlinSerial.cpp Sd2Card.cpp SdBaseFile.cpp SdFatUtil.cpp	\
-	SdFile.cpp SdVolume.cpp motion_control.cpp planner.cpp		\
-	stepper.cpp temperature.cpp cardreader.cpp ConfigurationStore.cpp
-CXXSRC += LiquidCrystal.cpp ultralcd.cpp SPI.cpp
+VPATH += $(ARDUINO_LIB_DIR)/AdafruitST7735
+VPATH += $(ARDUINO_LIB_DIR)/AdafruitGFX
+VPATH += $(ARDUINO_LIB_DIR)/Encoder
 
-#Check for Arduino 1.0.0 or higher and use the correct sourcefiles for that version
-ifeq ($(shell [ $(ARDUINO_VERSION) -ge 100 ] && echo true), true)
-CXXSRC += main.cpp
-else
-SRC += pins_arduino.c main.c
-endif
+#TODO: Add the path to the hardware variant when using Arduino >= 100, 
+#and adjust the files required for compilation.
+#VPATH += $(ARDUINO_INSTALL_DIR)/hardware/arduino/variants/mega
+
+SRC = \
+	pins_arduino.c \
+	main.c \
+	menu/menu.c \
+	wiring.c \
+	wiring_analog.c \
+	wiring_digital.c \
+	wiring_pulse.c \
+	wiring_shift.c \
+	WInterrupts.c
+
+CXXSRC = \
+	WMath.cpp \
+	WString.cpp \
+	Print.cpp \
+	SPI.cpp \
+	Marlin_main.cpp	\
+	MarlinSerial.cpp \
+	Sd2Card.cpp \
+	SdBaseFile.cpp \
+	SdFatUtil.cpp \
+	SdFile.cpp \
+	SdVolume.cpp \
+	motion_control.cpp \
+	planner.cpp	\
+	stepper.cpp \
+	temperature.cpp \
+	cardreader.cpp \
+	ConfigurationStore.cpp \
+	encoder/encoder.cpp \
+	Adafruit_GFX.cpp \
+	Adafruit_ST7735.cpp \
+	ultralcd.cpp
 
 FORMAT = ihex
 
@@ -243,11 +273,11 @@ LDFLAGS = -lm
 
 
 # Programming support using avrdude. Settings and variables.
+AVRDUDE = avrdude
 AVRDUDE_PORT = $(UPLOAD_PORT)
 AVRDUDE_WRITE_FLASH = -U flash:w:$(BUILD_DIR)/$(TARGET).hex:i
-AVRDUDE_FLAGS = -D -C $(ARDUINO_INSTALL_DIR)/hardware/tools/avrdude.conf \
-	-p $(MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) \
-	-b $(UPLOAD_RATE)
+AVRDUDE_FLAGS = -D -C $(AVRDUDE_CONFIG) \
+	-p $(MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) $(UPLOAD_RATE)
 
 # Program settings
 CC = $(AVR_TOOLS_PATH)avr-gcc
@@ -257,7 +287,6 @@ OBJDUMP = $(AVR_TOOLS_PATH)avr-objdump
 AR  = $(AVR_TOOLS_PATH)avr-ar
 SIZE = $(AVR_TOOLS_PATH)avr-size
 NM = $(AVR_TOOLS_PATH)avr-nm
-AVRDUDE = avrdude
 REMOVE = rm -f
 MV = mv -f
 
